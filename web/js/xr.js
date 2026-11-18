@@ -46,9 +46,15 @@ export class XRInput {
     this.nullPoses = 0;
     try { if (session.updateTargetFrameRate && session.supportedFrameRates?.includes(90)) await session.updateTargetFrameRate(90); } catch { /* opcional */ }
     // batimento: se parar de chegar, a página travou; se chegar com frames=0, o runtime não manda quadros
+    this.loopCalls = 0;
+    session.addEventListener('visibilitychange', () => diag.step('xr-visibility', { v: session.visibilityState }));
     const beat = setInterval(() => {
       if (!this.session) { clearInterval(beat); return; }
-      diag.step('alive', { frames: this.frames, nullPoses: this.nullPoses });
+      diag.step('alive', {
+        frames: this.frames, nullPoses: this.nullPoses, loopCalls: this.loopCalls,
+        xrVis: session.visibilityState, docVis: document.visibilityState, focus: document.hasFocus(),
+        presenting: this.renderer.xr.isPresenting,
+      });
     }, 2000);
     session.addEventListener('end', () => {
       clearInterval(beat);
@@ -62,6 +68,7 @@ export class XRInput {
 
   // devolve true se houve pose válida neste quadro
   update(frame, loco) {
+    this.loopCalls = (this.loopCalls || 0) + 1;
     if (!frame || !this.session) return false;
     const ref = this.renderer.xr.getReferenceSpace();
     this.frames++;

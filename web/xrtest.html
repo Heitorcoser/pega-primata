@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teste de VR</title>
+  <style>
+    :root { --bg: #20301f; --fg: #f3f7ee; --muted: #a9bea2; --ok: #3fae49; --bad: #ff6a2b; --vr: #2e86de; }
+    html, body { margin: 0; background: var(--bg); color: var(--fg); font-family: system-ui, 'Segoe UI', sans-serif; }
+    main { max-width: 560px; margin: 0 auto; padding: 24px 16px; }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { color: var(--muted); line-height: 1.5; }
+    button { width: 100%; padding: 14px; margin-top: 10px; border: 0; border-radius: 12px; font-size: 17px; font-weight: 700; color: #fff; background: var(--vr); cursor: pointer; }
+    #log { margin-top: 16px; padding: 12px; border-radius: 10px; background: #0f180f; font: 13px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; min-height: 120px; }
+    .ok { color: var(--ok); } .bad { color: var(--bad); }
+    a { color: #9fd0ff; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Teste de VR do PC</h1>
+    <p>Teste mínimo de WebXR, sem o jogo. Ligue o headset e o SteamVR/Link, clique num teste
+      e coloque o headset. Se você vir uma <b>cor sólida</b> no headset, o VR do navegador funciona.
+      O resultado é enviado automaticamente para o desenvolvedor.</p>
+    <button id="t1">Teste 1: simples</button>
+    <button id="t2">Teste 2: igual ao jogo (chão + limites)</button>
+    <div id="log">Aguardando…</div>
+    <p><a href="./?client=pcvr&vr=1">Voltar ao jogo</a></p>
+  </main>
+  <script>
+    const sid = 'T' + Math.random().toString(36).slice(2, 7);
+    const logEl = document.getElementById('log');
+    let t0 = 0;
+    function log(step, data = {}, cls = '') {
+      const ms = Math.round(performance.now() - t0);
+      const line = `${ms}ms ${step} ${Object.keys(data).length ? JSON.stringify(data) : ''}`;
+      logEl.innerHTML += `\n<span class="${cls}">${line.replace(/</g, '&lt;')}</span>`;
+      const body = JSON.stringify({ sid, step: 'xrtest:' + step, ms, ...data });
+      try { navigator.sendBeacon('diag', new Blob([body], { type: 'application/json' })); } catch {}
+    }
+    async function run(features, label) {
+      t0 = performance.now();
+      logEl.textContent = '';
+      let gpu = '?';
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2', { xrCompatible: true, antialias: false, alpha: false });
+      try { const e = gl.getExtension('WEBGL_debug_renderer_info'); gpu = gl.getParameter(e.UNMASKED_RENDERER_WEBGL); } catch {}
+      log('start', { label, ua: navigator.userAgent.slice(0, 140), gpu, xrCompatible: gl.getContextAttributes().xrCompatible });
+      let session;
+      try {
+        session = await navigator.xr.requestSession('immersive-vr', features);
+        log('session-ok', { features: [...(session.enabledFeatures || [])].join(','), vis: session.visibilityState }, 'ok');
+      } catch (e) { log('session-erro', { msg: e.message }, 'bad'); return; }
+      session.addEventListener('visibilitychange', () => log('visibilidade', { v: session.visibilityState }));
+      let frames = 0, poses = 0;
+      session.addEventListener('end', () => log('fim', { frames, poses }, frames ? 'ok' : 'bad'));
+      try {
+        if (!gl.getContextAttributes().xrCompatible) { await gl.makeXRCompatible(); log('makeXRCompatible-ok'); }
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        const ref = await session.requestReferenceSpace('local');
+        log('pronto', {}, 'ok');
+        const beat = setInterval(() => {
+          if (!session) return;
+          log('vivo', { frames, poses, vis: session.visibilityState, foco: document.hasFocus() }, frames ? 'ok' : 'bad');
+        }, 2000);
+        session.addEventListener('end', () => clearInterval(beat));
+        const onFrame = (t, frame) => {
+          frames++;
+          if (frames === 1) log('1o-quadro', {}, 'ok');
+          if (frame.getViewerPose(ref)) poses++;
+          const layer = session.renderState.baseLayer;
+          gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+          const k = (Math.sin(t / 500) + 1) / 2;
+          gl.clearColor(0.1, 0.4 + 0.4 * k, 0.2, 1);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          session.requestAnimationFrame(onFrame);
+        };
+        session.requestAnimationFrame(onFrame);
+      } catch (e) { log('erro', { msg: e.message, name: e.name }, 'bad'); session.end(); }
+    }
+    document.getElementById('t1').onclick = () => run({}, 'simples');
+    document.getElementById('t2').onclick = () => run({ optionalFeatures: ['local-floor', 'bounded-floor'] }, 'igual-ao-jogo');
+    if (!navigator.xr) logEl.textContent = 'Este navegador não tem WebXR.';
+  </script>
+</body>
+</html>
