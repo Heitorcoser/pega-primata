@@ -70,7 +70,9 @@ export class DesktopControls {
     };
   }
 
-  lock() { try { this.dom.requestPointerLock(); } catch { /* ignorado */ } }
+  lock() {
+    try { this.dom.requestPointerLock()?.catch?.(() => {}); } catch { /* ignorado */ }
+  }
   setEnabled(v) { this.enabled = v; if (!v) this.keys.clear(); }
   slap(i) { const h = this.hands[i]; h.state = 'slap'; h.t = 0; }
 

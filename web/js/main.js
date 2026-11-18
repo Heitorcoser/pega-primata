@@ -5,7 +5,8 @@ import { LocalPlayer } from './player.js';
 import { buildWorld } from './world.js';
 import { Avatar } from './avatar.js';
 import { DesktopControls } from './desktop.js';
-import { XRInput, vrSupported } from './xr.js';
+import { XRInput } from './xr.js';
+import { setupPcVr, controllerName } from './pcvr.js';
 import { Net } from './net.js';
 import { Board } from './board.js';
 import { initAudio, playTap, sfx } from './audio.js';
@@ -57,9 +58,12 @@ const desktop = new DesktopControls(player, physics, renderer.domElement);
 const xr = new XRInput(renderer, player);
 let mode = 'menu'; // menu | desktop | vr
 
-let myColor = store.get('color', COLORS[Math.floor(Math.random() * COLORS.length)]);
-let myName = store.get('name', 'Macaco' + Math.floor(Math.random() * 900 + 100));
-let myRoom = store.get('room', '');
+// o EXE passa nome/cor/sala pela URL ao abrir o VR no navegador
+const urlParams = new URLSearchParams(location.search);
+const pColor = urlParams.get('color');
+let myColor = (pColor && COLORS.includes(pColor)) ? pColor : store.get('color', COLORS[Math.floor(Math.random() * COLORS.length)]);
+let myName = (urlParams.get('name') || '').slice(0, 14) || store.get('name', 'Macaco' + Math.floor(Math.random() * 900 + 100));
+let myRoom = urlParams.has('room') ? urlParams.get('room').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) : store.get('room', '');
 const me = { inf: false };
 
 desktop.yaw = Math.PI;
@@ -291,13 +295,21 @@ desktop.onLockChange = (locked) => {
     desktop.setEnabled(false);
     $('menu').classList.remove('hidden');
     $('play-pc').textContent = 'Continuar no PC';
-  }
+    pcvr.refresh(); // headset pode ter sido ligado enquanto jogava
+  } else pcvr.render();
 };
 addEventListener('keydown', (e) => { if (e.code === 'KeyR' && mode === 'desktop') respawn(); });
 
-vrSupported().then((ok) => {
-  if (ok) { $('play-vr').classList.remove('hidden'); $('vr-hint').classList.add('hidden'); }
+// ---------- VR no PC (detecção de headset) ----------
+const pcvr = setupPcVr({
+  startWebXR: () => $('play-vr').onclick(),
+  getMode: () => mode,
+  getJoin: () => { applyMenuInputs(); return joinInfo(); },
 });
+if (urlParams.get('vr') === '1') {
+  flash('Clique em "Entrar no VR" e coloque o headset 🥽');
+  $('play-vr').classList.add('pulse');
+}
 
 // ---------- atualização automática do conteúdo ----------
 let bootVersion = null, pendingUpdate = false;
@@ -345,6 +357,8 @@ renderer.setAnimationLoop((time, frame) => {
       loco.initializeValues();
     }
     if (xr.menuPressed) respawn();
+    const ctl = controllerName(xr.profiles.right || xr.profiles.left);
+    if (ctl !== board.info.controls) board.set({ controls: ctl });
   } else {
     desktop.update(dt, loco);
   }

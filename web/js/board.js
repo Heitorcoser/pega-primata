@@ -86,6 +86,10 @@ export class Board {
     g.fillStyle = '#cfe8c8';
     g.fillText(`Sala: ${i.room}   •   ${i.status}   •   v${i.version}`, 32, 115);
     g.fillText(i.mode, 32, 152);
+    if (i.controls) {
+      g.fillStyle = '#9fd0ff';
+      g.fillText(`🎮 Controles: ${i.controls}`, 32, 560);
+    }
     g.font = 'bold 32px system-ui, sans-serif';
     i.players.slice(0, 10).forEach((p, k) => {
       const col = k < 5 ? 0 : 1, row = k % 5;

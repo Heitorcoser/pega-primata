@@ -13,6 +13,7 @@ export class XRInput {
     this.hadPose = false;
     this.menuPressed = false;
     this._prevMenu = false;
+    this.profiles = { left: '', right: '' }; // modelo do controle (ex.: 'valve-index')
   }
 
   async start(onEnd) {
@@ -55,18 +56,24 @@ export class XRInput {
       const pt = pose.transform;
       p.handLocal[i].set(pt.position.x, pt.position.y, pt.position.z);
       p.handLocalQuat[i].set(pt.orientation.x, pt.orientation.y, pt.orientation.z, pt.orientation.w);
+      if (src.profiles?.length) this.profiles[src.handedness] = src.profiles[0];
       const gp = src.gamepad;
       if (gp) {
-        // giro rápido (snap turn) no analógico direito
+        // giro rápido (snap turn) no direito: analógico (Touch/Index/WMR) ou
+        // touchpad pressionado nas laterais (HTC Vive — só tocar não gira)
         if (src.handedness === 'right') {
-          const ax = gp.axes.length >= 4 ? gp.axes[2] : (gp.axes[0] || 0);
+          const stick = gp.axes[2] || 0;
+          const pad = gp.buttons[2]?.pressed ? (gp.axes[0] || 0) : 0;
+          const ax = Math.abs(stick) >= Math.abs(pad) ? stick : pad;
           if (Math.abs(ax) > 0.7 && this.snapReady) {
             loco.turn(ax > 0 ? -this.snapDegrees : this.snapDegrees);
             this.snapReady = false;
           } else if (Math.abs(ax) < 0.3) this.snapReady = true;
         }
-        // botão B / Y (xr-standard: índice 5) troca de sala no painel
+        // renascer: B/Y (xr-standard índice 5) ou clique do analógico/touchpad esquerdo
+        // (controles sem B/Y, como o Vive)
         if (gp.buttons[5]?.pressed) menu = true;
+        if (src.handedness === 'left' && gp.buttons[3]?.pressed) menu = true;
       }
     }
     this.menuPressed = menu && !this._prevMenu;

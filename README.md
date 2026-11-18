@@ -95,6 +95,19 @@ B/Y = renascer. Toque os botões do quadro para trocar de cor ou de sala.
 Mouse = olhar. Espaço = pular. Shift = correr. Clique esquerdo/direito = tapa (pega os outros).
 R = renascer. Esc = menu. F11 = tela cheia (EXE).
 
+## VR no PC (SteamVR, Quest Link/Air Link, Virtual Desktop, WMR)
+
+- **No navegador (Chrome/Edge):** o jogo detecta o headset sozinho, ao abrir e quando um
+  headset é conectado, e mostra "Entrar no VR". Durante o jogo no PC, aperte **V**.
+- **No EXE:** o Electron padrão não tem OpenXR, então não consegue usar headsets de PC
+  ([electron#35011](https://github.com/electron/electron/issues/35011)). O app detecta o VR
+  pelo Windows: lê o runtime OpenXR ativo no registro e procura o SteamVR, Link, Virtual
+  Desktop, WMR, ALVR ou PICO rodando. Quando acha, mostra "Jogar em VR" (ou tecla **V**), que
+  abre o jogo numa janela do Chrome/Edge já com seu nome, cor e sala. O código está em `desktop/vr.js`.
+- **Controles reconhecidos:** Meta Touch, Valve Index, HTC Vive, Vive Cosmos/Focus, HP Reverb/WMR
+  e PICO. O modelo aparece no quadro dentro do jogo. No Vive (sem analógico), gire apertando
+  as laterais do touchpad e renasça clicando no touchpad esquerdo.
+
 ## Modo infecção
 
 Com 2 ou mais jogadores, um é sorteado como pegador (laranja). Quem é pego vira pegador.

@@ -33,6 +33,11 @@
     #hud-status.inf { background: var(--inf); }
     #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,.8); }
     #hud-keys { position: absolute; bottom: 12px; left: 12px; font-size: 12px; color: #fff; background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 8px; }
+    #vr-detect { margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(46, 134, 222, 0.22); border: 1px solid rgba(93, 173, 226, 0.6); font-size: 14px; line-height: 1.45; }
+    #vr-detect .btn { display: block; width: 100%; margin-top: 10px; background: var(--vr); }
+    #hud-vr { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); background: var(--vr); padding: 7px 14px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+    .pulse { animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(46,134,222,.35); } }
     #flash { position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-10px); background: var(--accent); color: #222; font-weight: 700; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
     #flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
@@ -51,12 +56,17 @@
       <div id="swatches"></div>
       <label for="room">Código da sala (vazio = sala pública)</label>
       <input id="room" maxlength="8" placeholder="ex.: AMIGOS" autocomplete="off" />
+      <div id="vr-detect" class="hidden">
+        <span id="vr-detect-text"></span>
+        <button class="btn hidden" id="vr-detect-btn">Jogar em VR</button>
+      </div>
       <div class="btns">
         <button class="btn" id="play-pc">Jogar no PC</button>
         <button class="btn hidden" id="play-vr">Entrar no VR</button>
       </div>
       <div class="help">
-        <b>VR:</b> empurre o chão e as paredes com as mãos para se mover. Analógico direito gira. B/Y = renascer.<br />
+        <b>VR:</b> empurre o chão e as paredes com as mãos para se mover. Analógico direito gira (Vive: aperte as laterais do touchpad). B/Y ou clique do analógico esquerdo = renascer.<br />
+        <b>VR no PC:</b> funciona com SteamVR, Quest Link/Air Link, Virtual Desktop e WMR. Ligue o headset e o jogo detecta sozinho.<br />
         <b>PC:</b> WASD = remar com os braços • Mouse = olhar (olhe para cima para escalar) • Espaço = pular • Shift = correr • Clique esq./dir. = tapa • R = renascer • Esc = menu
         <span id="vr-hint"><br />VR: abra este jogo no navegador do Quest ou pelo APK.</span>
       </div>
@@ -67,6 +77,7 @@
   <div id="hud" class="hidden">
     <div id="hud-status">Solo</div>
     <div id="crosshair"></div>
+    <div id="hud-vr" class="hidden"></div>
     <div id="hud-keys">WASD remar • Espaço pular • Cliques = tapa • R renascer • Esc menu</div>
   </div>
   <div id="flash"></div>

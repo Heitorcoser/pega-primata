@@ -4,9 +4,10 @@
 //     abre a cópia embutida (pasta offline/).
 //  2) O próprio app: electron-updater confere os Releases do GitHub, baixa a nova
 //     versão em segundo plano e oferece reiniciar para instalar.
-const { app, BrowserWindow, dialog, shell } = require('electron');
+const { app, BrowserWindow, dialog, shell, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const vr = require('./vr');
 
 let config = { gameUrl: '' };
 try { config = { ...config, ...JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8')) }; } catch { /* usa padrão */ }
@@ -27,7 +28,7 @@ function createWindow() {
     autoHideMenuBar: true,
     title: 'Pega Primata',
     icon: path.join(__dirname, 'build', 'icon.png'),
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.js') },
   });
   win.setMenuBarVisibility(false);
 
@@ -83,6 +84,14 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+  // VR de PC: detecção pelo sistema + abrir no Chrome/Edge (que têm OpenXR)
+  ipcMain.handle('vr-status', () => vr.status());
+  ipcMain.handle('vr-open', (_e, join) => {
+    const r = vr.openInBrowser(config.gameUrl, join, shell);
+    if (r.ok && win) win.minimize();
+    return r;
+  });
+
   app.whenReady().then(() => {
     createWindow();
     setupAutoUpdate();
