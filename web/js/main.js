@@ -337,6 +337,12 @@ const pcvr = setupPcVr({
   getMode: () => (xrStarting ? 'vr' : mode),
   getJoin: () => { applyMenuInputs(); return joinInfo(); },
 });
+// vigia do VR: sem quadros em 5 s => sai e o próximo clique usa o modo compatível
+xr.onNoFrames = (wasCompat) => {
+  setTimeout(() => flash(wasCompat
+    ? 'O VR não recebeu imagem do SteamVR/Link. Feche e abra o SteamVR e tente de novo.'
+    : 'Ajustando o VR para o seu PC... clique em "Entrar no VR" de novo.'), 300);
+};
 if (urlParams.get('vr') === '1') {
   flash('Clique em "Entrar no VR" e coloque o headset 🥽');
   $('play-vr').classList.add('pulse');
@@ -375,9 +381,24 @@ const clock = new THREE.Clock();
 const tmpH = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpB = new THREE.Vector3();
 let sendAcc = 0;
 
+// Um erro dentro do laço não pode matar o laço de VR (no three.js, se o callback lançar
+// exceção, o próximo quadro nunca é pedido e o SteamVR acusa "não está respondendo").
+let loopErrors = 0;
 renderer.setAnimationLoop((time, frame) => {
   const dt = Math.min(Math.max(clock.getDelta(), 1e-4), 0.05);
   if (window.__pp?.paused) return; // depuração: simulação manual
+  try {
+    tick(time, frame, dt);
+  } catch (e) {
+    if (loopErrors++ < 3) {
+      console.error(e);
+      diag.step('loop-error', { msg: String(e?.message || e).slice(0, 200), stack: String(e?.stack || '').slice(0, 400) });
+    }
+    try { renderer.render(scene, camera); } catch { /* nada a fazer */ }
+  }
+});
+
+function tick(time, frame, dt) {
   const now = performance.now();
 
   if (mode === 'vr') {
@@ -429,7 +450,7 @@ renderer.setAnimationLoop((time, frame) => {
   if (sendAcc >= 0.05) { sendAcc = 0; sendState(); }
 
   renderer.render(scene, camera);
-});
+}
 
 // para depuração no console
 window.__pp = {

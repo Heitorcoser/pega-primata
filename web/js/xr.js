@@ -18,10 +18,11 @@ export class XRInput {
   }
 
   async start(onEnd) {
-    diag.step('requestSession');
-    const session = await navigator.xr.requestSession('immersive-vr', {
-      optionalFeatures: ['local-floor', 'bounded-floor'],
-    });
+    // modo compatível = igual ao teste mínimo que funcionou no PC VR (sem recursos extras)
+    const compat = !!this.compatMode;
+    diag.step('requestSession', { compat });
+    // só 'local-floor' (o jogo não usa 'bounded-floor'; com SteamVR ele pode segurar os quadros)
+    const session = await navigator.xr.requestSession('immersive-vr', compat ? {} : { optionalFeatures: ['local-floor'] });
     diag.step('session-ok', {
       features: [...(session.enabledFeatures || [])].join(','),
       rates: session.supportedFrameRates ? [...session.supportedFrameRates].join(',') : '',
@@ -29,8 +30,8 @@ export class XRInput {
     });
     session.addEventListener('end', () => diag.step('session-end', { frames: this.frames }));
     // tenta 'local-floor'; se o runtime do PC não tiver, usa 'local' (senão o setSession falha)
-    let refType = 'local-floor';
-    try { await session.requestReferenceSpace('local-floor'); } catch { refType = 'local'; }
+    let refType = compat ? 'local' : 'local-floor';
+    if (!compat) { try { await session.requestReferenceSpace('local-floor'); } catch { refType = 'local'; } }
     this.renderer.xr.setReferenceSpaceType(refType);
     diag.step('setSession', { refType });
     await this.renderer.xr.setSession(session);
@@ -56,7 +57,22 @@ export class XRInput {
         presenting: this.renderer.xr.isPresenting,
       });
     }, 2000);
+    // contador "cru" de quadros entregues pelo navegador, independente do laço do jogo:
+    // separa "o navegador não manda quadros" de "o laço do jogo parou"
+    let open = true;
+    this.rawFrames = 0;
+    const raw = () => { this.rawFrames++; if (open) session.requestAnimationFrame(raw); };
+    session.requestAnimationFrame(raw);
+    // vigia: sem quadros do jogo em 5 s => sai do VR; o próximo clique usa o modo compatível
+    setTimeout(() => {
+      if (!open || this.frames > 0) return;
+      diag.step('watchdog-no-frames', { raw: this.rawFrames, loopCalls: this.loopCalls, compat });
+      if (!compat) this.compatMode = true;
+      this.onNoFrames?.(compat);
+      session.end();
+    }, 5000);
     session.addEventListener('end', () => {
+      open = false;
       clearInterval(beat);
       this.session = null;
       onEnd?.();

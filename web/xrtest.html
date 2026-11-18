@@ -20,7 +20,8 @@
   <main>
     <h1>Teste de VR do PC</h1>
     <p>Teste mínimo de WebXR, sem o jogo. Ligue o headset e o SteamVR/Link, clique num teste
-      e coloque o headset. Se você vir uma <b>cor sólida</b> no headset, o VR do navegador funciona.
+      e coloque o headset. Se você vir uma <b>cor verde</b> no headset, o VR do navegador funciona.
+      Cada teste encerra sozinho em 12 s; espere um acabar antes de clicar no outro.
       O resultado é enviado automaticamente para o desenvolvedor.</p>
     <button id="t1">Teste 1: simples</button>
     <button id="t2">Teste 2: igual ao jogo (chão + limites)</button>
@@ -38,7 +39,9 @@
       const body = JSON.stringify({ sid, step: 'xrtest:' + step, ms, ...data });
       try { navigator.sendBeacon('diag', new Blob([body], { type: 'application/json' })); } catch {}
     }
+    let current = null;
     async function run(features, label) {
+      if (current) { try { await current.end(); } catch {} current = null; }
       t0 = performance.now();
       logEl.textContent = '';
       let gpu = '?';
@@ -49,6 +52,8 @@
       let session;
       try {
         session = await navigator.xr.requestSession('immersive-vr', features);
+        current = session;
+        setTimeout(() => { if (current === session) { session.end(); current = null; } }, 12000); // encerra sozinho
         log('session-ok', { features: [...(session.enabledFeatures || [])].join(','), vis: session.visibilityState }, 'ok');
       } catch (e) { log('session-erro', { msg: e.message }, 'bad'); return; }
       session.addEventListener('visibilitychange', () => log('visibilidade', { v: session.visibilityState }));
