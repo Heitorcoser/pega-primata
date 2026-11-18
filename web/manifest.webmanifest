@@ -1,0 +1,15 @@
+{
+  "name": "Pega Primata",
+  "short_name": "Pega Primata",
+  "description": "Pega-pega de macaco em VR: ande só com os braços.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#20301f",
+  "theme_color": "#20301f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

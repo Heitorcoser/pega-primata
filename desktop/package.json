@@ -1,0 +1,39 @@
+{
+  "name": "pega-primata",
+  "productName": "Pega Primata",
+  "version": "1.0.0",
+  "description": "Pega Primata para PC",
+  "main": "main.js",
+  "author": "Pega Primata",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "copy-web": "node scripts/copy-web.js",
+    "start": "npm run copy-web && electron .",
+    "dist": "npm run copy-web && electron-builder --win nsis",
+    "release": "npm run copy-web && electron-builder --win nsis --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.pegaprimata.game",
+    "productName": "Pega Primata",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "config.json", "offline/**/*", "build/icon.png", "package.json"],
+    "win": { "target": ["nsis"], "icon": "build/icon.png", "signAndEditExecutable": false },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "Pega Primata"
+    },
+    "publish": [
+      { "provider": "github", "owner": "SEU_USUARIO_GITHUB", "repo": "pega-primata" }
+    ]
+  }
+}

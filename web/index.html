@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Pega Primata</title>
+  <meta name="theme-color" content="#20301f" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <style>
+    :root { --bg: #20301f; --card: rgba(18, 28, 18, 0.88); --fg: #f3f7ee; --muted: #a9bea2; --accent: #ffd34d; --go: #3fae49; --vr: #2e86de; --inf: #ff6a2b; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    #app canvas { display: block; }
+    .hidden { display: none !important; }
+    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 20, 10, 0.35); }
+    .card { width: min(440px, 100%); background: var(--card); border-radius: 18px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+    h1 { margin: 0 0 4px; color: var(--accent); font-size: 34px; letter-spacing: 1px; }
+    .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+    label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #3b5238; background: #0f180f; color: var(--fg); font-size: 16px; }
+    #swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swatch { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
+    .swatch.sel { border-color: #fff; }
+    .btns { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+    .btn { flex: 1; min-width: 150px; padding: 14px; border: 0; border-radius: 12px; font-size: 17px; font-weight: 700; color: #fff; cursor: pointer; }
+    #play-pc { background: var(--go); }
+    #play-vr { background: var(--vr); }
+    .help { margin-top: 14px; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+    .foot { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+    #hud { position: fixed; inset: 0; pointer-events: none; }
+    #hud-status { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; }
+    #hud-status.inf { background: var(--inf); }
+    #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,.8); }
+    #hud-keys { position: absolute; bottom: 12px; left: 12px; font-size: 12px; color: #fff; background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 8px; }
+    #flash { position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-10px); background: var(--accent); color: #222; font-weight: 700; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+    #flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+  <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="menu">
+    <div class="card">
+      <h1>PEGA PRIMATA</h1>
+      <p class="sub">Pega-pega de macaco: ande só com os braços.</p>
+      <label for="name">Seu nome</label>
+      <input id="name" maxlength="14" autocomplete="off" />
+      <label>Cor</label>
+      <div id="swatches"></div>
+      <label for="room">Código da sala (vazio = sala pública)</label>
+      <input id="room" maxlength="8" placeholder="ex.: AMIGOS" autocomplete="off" />
+      <div class="btns">
+        <button class="btn" id="play-pc">Jogar no PC</button>
+        <button class="btn hidden" id="play-vr">Entrar no VR</button>
+      </div>
+      <div class="help">
+        <b>VR:</b> empurre o chão e as paredes com as mãos para se mover. Analógico direito gira. B/Y = renascer.<br />
+        <b>PC:</b> WASD = remar com os braços • Mouse = olhar (olhe para cima para escalar) • Espaço = pular • Shift = correr • Clique esq./dir. = tapa • R = renascer • Esc = menu
+        <span id="vr-hint"><br />VR: abra este jogo no navegador do Quest ou pelo APK.</span>
+      </div>
+      <div class="foot"><span id="net-status">offline</span><span id="version">v-</span></div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div id="hud-status">Solo</div>
+    <div id="crosshair"></div>
+    <div id="hud-keys">WASD remar • Espaço pular • Cliques = tapa • R renascer • Esc menu</div>
+  </div>
+  <div id="flash"></div>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>

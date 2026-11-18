@@ -1,0 +1,31 @@
+# Gera o EXE e publica no GitHub Releases quando você cria uma tag "v*" (ex.: v1.0.1).
+# O electron-updater dos jogadores encontra esse Release e se atualiza sozinho.
+name: Release do EXE
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar dependências
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Ajustar versão pela tag
+        working-directory: desktop
+        shell: bash
+        run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version --allow-same-version
+      - name: Build + publicar
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run release

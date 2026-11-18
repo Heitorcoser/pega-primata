@@ -1,0 +1,9 @@
+node_modules/
+desktop/dist/
+desktop/offline/
+quest/app/
+desktop/build.log
+.claude/
+*.keystore
+*.apk
+*.aab
