@@ -104,7 +104,11 @@ function openInBrowser(gameUrl, join, shell, profileDir) {
   if (browser) {
     // perfil próprio = processo novo do navegador a cada vez (o Chrome tem um bug em que,
     // com SteamVR, só a 1ª sessão de VR do processo funciona direito — Chromium 40859047)
-    const args = [`--app=${url.toString()}`, '--new-window', '--no-first-run', '--no-default-browser-check'];
+    // --disable-features=XRSandbox: o runtime OpenXR do SteamVR não funciona dentro do
+    // sandbox de XR do Chrome e a página trava ("não está respondendo") — three.js #30505.
+    // Vale só para esta janela do jogo (perfil próprio), não para o Chrome normal da pessoa.
+    const args = [`--app=${url.toString()}`, '--new-window', '--no-first-run', '--no-default-browser-check',
+      '--disable-features=XRSandbox'];
     if (profileDir) args.unshift(`--user-data-dir=${profileDir}`);
     const child = spawn(browser.exe, args, { detached: true, stdio: 'ignore' });
     child.unref();
