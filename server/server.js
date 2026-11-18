@@ -24,6 +24,7 @@ const server = http.createServer((req, res) => {
   let url;
   try { url = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400).end(); return; }
   if (url === '/health') { res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok'); return; }
+  if (url === '/diag' && req.method === 'POST') { handleDiag(req, res); return; }
   if (url.endsWith('/')) url += 'index.html';
   const file = path.resolve(WEB, '.' + url);
   if (!file.startsWith(WEB + path.sep)) { res.writeHead(403).end(); return; }
@@ -37,6 +38,26 @@ const server = http.createServer((req, res) => {
     fs.createReadStream(file).pipe(res);
   });
 });
+
+// diagnóstico da entrada no VR: só imprime nos logs do servidor (Render → Logs)
+const diagCount = new Map();
+setInterval(() => diagCount.clear(), 60000);
+function handleDiag(req, res) {
+  const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.socket.remoteAddress;
+  const n = (diagCount.get(ip) || 0) + 1;
+  diagCount.set(ip, n);
+  let body = '';
+  req.on('data', (c) => { body += c; if (body.length > 4096) req.destroy(); });
+  req.on('end', () => {
+    res.writeHead(204).end();
+    if (n > 120) return;
+    try {
+      const j = JSON.parse(body);
+      const safe = JSON.stringify(j).replace(/[\r\n]/g, ' ').slice(0, 1200);
+      console.log('[diag]', safe);
+    } catch { /* ignorado */ }
+  });
+}
 
 // ------------------------------------------------------------------ salas
 const rooms = new Map();

@@ -7,6 +7,7 @@ import { Avatar } from './avatar.js';
 import { DesktopControls } from './desktop.js';
 import { XRInput } from './xr.js';
 import { setupPcVr, controllerName } from './pcvr.js';
+import { diag } from './diag.js';
 import { Net } from './net.js';
 import { Board } from './board.js';
 import { initAudio, playTap, sfx } from './audio.js';
@@ -34,6 +35,8 @@ const glAttrs = {
 };
 const gl = canvas.getContext('webgl2', glAttrs);
 const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, powerPreference: 'high-performance' });
+canvas.addEventListener('webglcontextlost', () => diag.step('context-lost'));
+canvas.addEventListener('webglcontextrestored', () => diag.step('context-restored'));
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
@@ -262,7 +265,7 @@ $('play-pc').onclick = () => {
   desktop.lock();
 };
 
-let savedHead = new THREE.Vector3(), savedYaw = Math.PI, needsRecenter = false;
+let savedHead = new THREE.Vector3(), savedYaw = Math.PI, needsRecenter = false, xrStarting = false;
 $('play-vr').onclick = async () => {
   initAudio();
   applyMenuInputs();
@@ -282,11 +285,16 @@ $('play-vr').onclick = async () => {
   }
   player.headWorld(savedHead);
   savedYaw = player.headYaw();
+  diag.start(gl);
+  xrStarting = true;
   try {
     await xr.start(onVrEnd);
   } catch (e) {
+    diag.step('start-failed', { msg: String(e?.message || e).slice(0, 200), name: e?.name });
     flash('Não foi possível entrar no VR: ' + e.message + ' — confira se o SteamVR/Link está aberto e é o runtime OpenXR ativo.');
     return;
+  } finally {
+    xrStarting = false;
   }
   mode = 'vr';
   desktop.setEnabled(false);
@@ -326,7 +334,7 @@ addEventListener('keydown', (e) => { if (e.code === 'KeyR' && mode === 'desktop'
 // ---------- VR no PC (detecção de headset) ----------
 const pcvr = setupPcVr({
   startWebXR: () => $('play-vr').onclick(),
-  getMode: () => mode,
+  getMode: () => (xrStarting ? 'vr' : mode),
   getJoin: () => { applyMenuInputs(); return joinInfo(); },
 });
 if (urlParams.get('vr') === '1') {

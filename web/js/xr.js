@@ -1,6 +1,7 @@
 // Entrada de VR (WebXR): cabeça e controles lidos direto do XRFrame (pose do quadro atual),
 // em coordenadas do espaço de referência 'local-floor' = espaço local do rig.
 import * as THREE from 'three';
+import { diag } from './diag.js';
 
 export class XRInput {
   constructor(renderer, player) {
@@ -17,15 +18,40 @@ export class XRInput {
   }
 
   async start(onEnd) {
+    diag.step('requestSession');
     const session = await navigator.xr.requestSession('immersive-vr', {
       optionalFeatures: ['local-floor', 'bounded-floor'],
     });
-    this.renderer.xr.setReferenceSpaceType('local-floor');
+    diag.step('session-ok', {
+      features: [...(session.enabledFeatures || [])].join(','),
+      rates: session.supportedFrameRates ? [...session.supportedFrameRates].join(',') : '',
+      blend: session.environmentBlendMode,
+    });
+    session.addEventListener('end', () => diag.step('session-end', { frames: this.frames }));
+    // tenta 'local-floor'; se o runtime do PC não tiver, usa 'local' (senão o setSession falha)
+    let refType = 'local-floor';
+    try { await session.requestReferenceSpace('local-floor'); } catch { refType = 'local'; }
+    this.renderer.xr.setReferenceSpaceType(refType);
+    diag.step('setSession', { refType });
     await this.renderer.xr.setSession(session);
+    diag.step('setSession-ok');
+    if (refType === 'local') {
+      // 'local' começa na altura dos olhos: desloca a origem 1,6 m para baixo (vira "chão")
+      const base = this.renderer.xr.getReferenceSpace();
+      this.renderer.xr.setReferenceSpace(base.getOffsetReferenceSpace(new XRRigidTransform({ x: 0, y: -1.6, z: 0 })));
+    }
     this.session = session;
     this.hadPose = false;
+    this.frames = 0;
+    this.nullPoses = 0;
     try { if (session.updateTargetFrameRate && session.supportedFrameRates?.includes(90)) await session.updateTargetFrameRate(90); } catch { /* opcional */ }
+    // batimento: se parar de chegar, a página travou; se chegar com frames=0, o runtime não manda quadros
+    const beat = setInterval(() => {
+      if (!this.session) { clearInterval(beat); return; }
+      diag.step('alive', { frames: this.frames, nullPoses: this.nullPoses });
+    }, 2000);
     session.addEventListener('end', () => {
+      clearInterval(beat);
       this.session = null;
       onEnd?.();
     });
@@ -38,8 +64,11 @@ export class XRInput {
   update(frame, loco) {
     if (!frame || !this.session) return false;
     const ref = this.renderer.xr.getReferenceSpace();
+    this.frames++;
+    if (this.frames === 1) diag.step('first-frame');
     const vp = frame.getViewerPose(ref);
-    if (!vp) return false;
+    if (!vp) { this.nullPoses++; return false; }
+    if (!this.hadPose) diag.step('first-pose', { frames: this.frames });
     const p = this.player;
     const t = vp.transform;
     p.headLocal.set(t.position.x, t.position.y, t.position.z);

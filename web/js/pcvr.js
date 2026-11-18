@@ -41,6 +41,8 @@ export function setupPcVr({ startWebXR, getMode, getJoin }) {
   }
 
   async function refresh() {
+    // nunca consulta o runtime durante a entrada/sessão de VR (pode conflitar com o OpenXR)
+    if (getMode() === 'vr') return;
     if (isExe) {
       try { state.exe = await window.desktopVR.status(); } catch { state.exe = null; }
     } else {
