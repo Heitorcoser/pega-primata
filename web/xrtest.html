@@ -25,6 +25,7 @@
       O resultado é enviado automaticamente para o desenvolvedor.</p>
     <button id="t1">Teste 1: simples</button>
     <button id="t2">Teste 2: igual ao jogo (chão + limites)</button>
+    <button id="t3">Teste 3: camada de projeção (jeito antigo do jogo)</button>
     <div id="log">Aguardando…</div>
     <p><a href="./?client=pcvr&vr=1">Voltar ao jogo</a></p>
   </main>
@@ -61,7 +62,18 @@
       session.addEventListener('end', () => log('fim', { frames, poses }, frames ? 'ok' : 'bad'));
       try {
         if (!gl.getContextAttributes().xrCompatible) { await gl.makeXRCompatible(); log('makeXRCompatible-ok'); }
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        const useProj = label === 'camada-de-projecao';
+        let binding = null, projLayer = null, fb = null;
+        log('api', { layersApi: session.renderState.layers !== undefined });
+        if (useProj) {
+          // caminho que o three.js usava: WebXR Layers (camada de projeção)
+          binding = new XRWebGLBinding(session, gl);
+          projLayer = binding.createProjectionLayer({ colorFormat: gl.RGBA8 });
+          session.updateRenderState({ layers: [projLayer] });
+          fb = gl.createFramebuffer();
+        } else {
+          session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        }
         const ref = await session.requestReferenceSpace('local');
         log('pronto', {}, 'ok');
         const beat = setInterval(() => {
@@ -72,12 +84,23 @@
         const onFrame = (t, frame) => {
           frames++;
           if (frames === 1) log('1o-quadro', {}, 'ok');
-          if (frame.getViewerPose(ref)) poses++;
-          const layer = session.renderState.baseLayer;
-          gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+          const pose = frame.getViewerPose(ref);
+          if (pose) poses++;
           const k = (Math.sin(t / 500) + 1) / 2;
           gl.clearColor(0.1, 0.4 + 0.4 * k, 0.2, 1);
-          gl.clear(gl.COLOR_BUFFER_BIT);
+          if (useProj) {
+            for (const view of pose ? pose.views : []) {
+              const sub = binding.getViewSubImage(projLayer, view);
+              gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+              gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sub.colorTexture, 0);
+              const vp = sub.viewport;
+              gl.viewport(vp.x, vp.y, vp.width, vp.height);
+              gl.clear(gl.COLOR_BUFFER_BIT);
+            }
+          } else {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+          }
           session.requestAnimationFrame(onFrame);
         };
         session.requestAnimationFrame(onFrame);
@@ -85,6 +108,7 @@
     }
     document.getElementById('t1').onclick = () => run({}, 'simples');
     document.getElementById('t2').onclick = () => run({ optionalFeatures: ['local-floor', 'bounded-floor'] }, 'igual-ao-jogo');
+    document.getElementById('t3').onclick = () => run({ optionalFeatures: ['local-floor'] }, 'camada-de-projecao'); // igual ao three.js: sem pedir 'layers'
     if (!navigator.xr) logEl.textContent = 'Este navegador não tem WebXR.';
   </script>
 </body>

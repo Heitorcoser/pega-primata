@@ -33,7 +33,9 @@ export class XRInput {
     let refType = compat ? 'local' : 'local-floor';
     if (!compat) { try { await session.requestReferenceSpace('local-floor'); } catch { refType = 'local'; } }
     this.renderer.xr.setReferenceSpaceType(refType);
-    diag.step('setSession', { refType });
+    const layersApi = session.renderState.layers !== undefined;
+    forceBaseLayer(session);
+    diag.step('setSession', { refType, layersApi, forced: session.renderState.layers === undefined });
     await this.renderer.xr.setSession(session);
     diag.step('setSession-ok');
     if (refType === 'local') {
@@ -142,6 +144,30 @@ export class XRInput {
       else src?.gamepad?.vibrationActuator?.playEffect?.('dual-rumble', { duration: ms, strongMagnitude: intensity, weakMagnitude: intensity });
     } catch { /* sem vibração */ }
   }
+}
+
+// O three.js usa a camada de projeção (WebXR Layers) sempre que o navegador tem essa API,
+// mesmo sem o recurso 'layers' ter sido pedido. No Chrome/Edge do PC (SteamVR/Link) a sessão
+// então nunca recebe quadros e o SteamVR acusa "não está respondendo". Aqui escondemos
+// renderState.layers para o three.js usar a XRWebGLLayer clássica — o caminho que funciona
+// em qualquer navegador com WebXR (Quest, PC, PICO).
+function forceBaseLayer(session) {
+  const desc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(session), 'renderState')
+    || Object.getOwnPropertyDescriptor(XRSession.prototype, 'renderState');
+  if (!desc?.get) return;
+  Object.defineProperty(session, 'renderState', {
+    configurable: true,
+    get() {
+      const rs = desc.get.call(session);
+      return new Proxy(rs, {
+        get(target, key) {
+          if (key === 'layers') return undefined;
+          const v = Reflect.get(target, key, target);
+          return typeof v === 'function' ? v.bind(target) : v;
+        },
+      });
+    },
+  });
 }
 
 export async function vrSupported() {
