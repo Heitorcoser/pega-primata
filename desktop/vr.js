@@ -92,7 +92,7 @@ async function status() {
 const clean = (s, n) => String(s ?? '').replace(/[^\p{L}\p{N} _\-#]/gu, '').slice(0, n);
 
 // abre o jogo numa janela de app do Chrome/Edge (sem barra de endereço), já pronto p/ VR
-function openInBrowser(gameUrl, join, shell) {
+function openInBrowser(gameUrl, join, shell, profileDir) {
   if (!gameUrl) return { ok: false, reason: 'O VR no PC precisa do jogo online (configure "gameUrl" no config.json).' };
   const url = new URL(gameUrl);
   url.searchParams.set('client', 'pcvr');
@@ -102,7 +102,11 @@ function openInBrowser(gameUrl, join, shell) {
   if (join?.room) url.searchParams.set('room', clean(join.room, 8));
   const browser = findBrowser();
   if (browser) {
-    const child = spawn(browser.exe, [`--app=${url.toString()}`, '--new-window'], { detached: true, stdio: 'ignore' });
+    // perfil próprio = processo novo do navegador a cada vez (o Chrome tem um bug em que,
+    // com SteamVR, só a 1ª sessão de VR do processo funciona direito — Chromium 40859047)
+    const args = [`--app=${url.toString()}`, '--new-window', '--no-first-run', '--no-default-browser-check'];
+    if (profileDir) args.unshift(`--user-data-dir=${profileDir}`);
+    const child = spawn(browser.exe, args, { detached: true, stdio: 'ignore' });
     child.unref();
     return { ok: true, browser: browser.name };
   }

@@ -87,7 +87,7 @@ if (!app.requestSingleInstanceLock()) {
   // VR de PC: detecção pelo sistema + abrir no Chrome/Edge (que têm OpenXR)
   ipcMain.handle('vr-status', () => vr.status());
   ipcMain.handle('vr-open', (_e, join) => {
-    const r = vr.openInBrowser(config.gameUrl, join, shell);
+    const r = vr.openInBrowser(config.gameUrl, join, shell, path.join(app.getPath('userData'), 'vr-browser'));
     if (r.ok && win) win.minimize();
     return r;
   });

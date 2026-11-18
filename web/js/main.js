@@ -24,7 +24,16 @@ const store = {
 const $ = (id) => document.getElementById(id);
 
 // ---------- render / cena ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// O contexto WebGL já nasce compatível com XR. Sem isso, ao entrar no VR o three.js chama
+// makeXRCompatible(), que no Chrome/Edge com OpenXR (SteamVR, Quest Link) pode trocar o
+// contexto da GPU e travar a página ("A página não está respondendo") — three.js #30505.
+const canvas = document.createElement('canvas');
+const glAttrs = {
+  alpha: false, depth: true, stencil: false, antialias: true, premultipliedAlpha: true,
+  preserveDrawingBuffer: false, powerPreference: 'high-performance', xrCompatible: !!navigator.xr,
+};
+const gl = canvas.getContext('webgl2', glAttrs);
+const renderer = new THREE.WebGLRenderer({ canvas, context: gl, antialias: true, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.xr.enabled = true;
@@ -257,12 +266,26 @@ let savedHead = new THREE.Vector3(), savedYaw = Math.PI, needsRecenter = false;
 $('play-vr').onclick = async () => {
   initAudio();
   applyMenuInputs();
+  // headset ligado depois que a página abriu => contexto não é compatível com XR.
+  // Em vez de arriscar o makeXRCompatible (que pode travar no PC), recarrega uma vez
+  // para criar o contexto já com o headset presente.
+  if (gl.getContextAttributes()?.xrCompatible === false && !urlParams.has('xrfix')) {
+    const u = new URL(location.href);
+    u.searchParams.set('vr', '1');
+    u.searchParams.set('xrfix', '1');
+    u.searchParams.set('name', myName);
+    u.searchParams.set('color', myColor);
+    u.searchParams.set('room', myRoom);
+    flash('Preparando o VR... clique em "Entrar no VR" de novo.');
+    setTimeout(() => location.replace(u.toString()), 600);
+    return;
+  }
   player.headWorld(savedHead);
   savedYaw = player.headYaw();
   try {
     await xr.start(onVrEnd);
   } catch (e) {
-    flash('Não foi possível entrar no VR: ' + e.message);
+    flash('Não foi possível entrar no VR: ' + e.message + ' — confira se o SteamVR/Link está aberto e é o runtime OpenXR ativo.');
     return;
   }
   mode = 'vr';
