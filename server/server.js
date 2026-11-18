@@ -1,18 +1,19 @@
 // Servidor do Pega Primata: serve os arquivos do jogo (pasta ../web) e o multiplayer
-// por WebSocket em /ws. Modo de jogo: infecção (quem é pego passa a pegar também).
-// Um único deploy (ex.: Render) = site do jogo + servidor. Cada deploy novo atualiza
-// automaticamente o APK do Quest e o EXE, porque os dois carregam o jogo deste servidor.
+// por WebSocket em /ws. Modo: Estação Zero (fuga cooperativa de um labirinto com babuínos).
+// A IA dos monstros e as regras (amostras, elevadores, andares) rodam AQUI, com o mesmo
+// código do jogo solo (web/js/shared), para todos verem os mesmos monstros.
+// Um único deploy (ex.: Render) = site do jogo + servidor; APK e EXE carregam daqui.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { pathToFileURL } = require('url');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
 const WEB = path.resolve(__dirname, '..', 'web');
 const MAX_PLAYERS = 10;
 const TICK_MS = 50;
-const ROUND_END_MS = 4000;
-const GRACE_MS = 3000;
+const DEAD_MS = 2600; // depois de pego, o jogador fica fora da IA enquanto renasce
 
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -53,8 +54,7 @@ function handleDiag(req, res) {
     if (n > 120) return;
     try {
       const j = JSON.parse(body);
-      const safe = JSON.stringify(j).replace(/[\r\n]/g, ' ').slice(0, 1200);
-      console.log('[diag]', safe);
+      console.log('[diag]', JSON.stringify(j).replace(/[\r\n]/g, ' ').slice(0, 1200));
     } catch { /* ignorado */ }
   });
 }
@@ -62,6 +62,7 @@ function handleDiag(req, res) {
 // ------------------------------------------------------------------ salas
 const rooms = new Map();
 let nextId = 1;
+let FloorGame = null; // carregado do módulo compartilhado (ESM)
 
 function makeCode() {
   const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -70,16 +71,17 @@ function makeCode() {
   return s;
 }
 
+// cada sala nasce com uma semente aleatória => labirinto diferente a cada partida
+function newRoom(code, isPublic) {
+  const r = { code, isPublic, players: new Map(), game: new FloorGame() };
+  rooms.set(code, r);
+  return r;
+}
 function getRoom(code) {
-  if (code) {
-    if (!rooms.has(code)) rooms.set(code, { code, isPublic: false, players: new Map(), state: 'waiting', endAt: 0 });
-    return rooms.get(code);
-  }
+  if (code) return rooms.get(code) || newRoom(code, false);
   for (const r of rooms.values()) if (r.isPublic && r.players.size < MAX_PLAYERS) return r;
   let c; do { c = makeCode(); } while (rooms.has(c));
-  const r = { code: c, isPublic: true, players: new Map(), state: 'waiting', endAt: 0 };
-  rooms.set(c, r);
-  return r;
+  return newRoom(c, true);
 }
 
 function send(ws, obj) { if (ws.readyState === 1) ws.send(JSON.stringify(obj)); }
@@ -87,36 +89,11 @@ function broadcast(room, obj) { const s = JSON.stringify(obj); for (const p of r
 
 function sendRoster(room) {
   broadcast(room, {
-    t: 'roster', room: room.code, state: room.state,
-    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, inf: p.inf })),
+    t: 'roster', room: room.code,
+    players: [...room.players.values()].map((p) => ({ id: p.id, name: p.name, color: p.color, caught: p.caught })),
   });
 }
-
-function pickInfected(room) {
-  const list = [...room.players.values()];
-  for (const p of list) p.inf = false;
-  if (list.length < 2) { room.state = 'waiting'; return; }
-  list[Math.floor(Math.random() * list.length)].inf = true;
-  room.state = 'playing';
-  room.startedAt = Date.now();
-  broadcast(room, { t: 'round', state: 'start' });
-}
-
-function updateRound(room) {
-  const list = [...room.players.values()];
-  if (room.state === 'ending') return;
-  if (list.length < 2) {
-    if (room.state !== 'waiting') { room.state = 'waiting'; for (const p of list) p.inf = false; }
-    return;
-  }
-  const infected = list.filter((p) => p.inf).length;
-  if (room.state === 'waiting' || infected === 0) { pickInfected(room); return; }
-  if (infected === list.length) {
-    room.state = 'ending';
-    room.endAt = Date.now() + ROUND_END_MS;
-    broadcast(room, { t: 'round', state: 'end' });
-  }
-}
+const sendProgress = (room) => broadcast(room, { t: 'prog', ...room.game.progress() });
 
 function leave(p) {
   const room = p.room;
@@ -124,7 +101,6 @@ function leave(p) {
   room.players.delete(p.id);
   p.room = null;
   if (room.players.size === 0) { rooms.delete(room.code); return; }
-  updateRound(room);
   sendRoster(room);
 }
 
@@ -134,12 +110,11 @@ function cleanStr(s, max, fallback) {
 }
 const cleanColor = (c) => (/^#[0-9a-fA-F]{6}$/.test(c) ? c : '#8b5a2b');
 const finite = (a, n) => Array.isArray(a) && a.length === n && a.every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 1e4);
-const dist = (s, i, t, j) => Math.hypot(s[i] - t[j], s[i + 1] - t[j + 1], s[i + 2] - t[j + 2]);
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 8 * 1024 });
 
 wss.on('connection', (ws) => {
-  const p = { id: nextId++, ws, name: 'Macaco', color: '#8b5a2b', inf: false, s: null, room: null, alive: true, lastTag: 0 };
+  const p = { id: nextId++, ws, name: 'Macaco', color: '#8b5a2b', s: null, room: null, alive: true, deadUntil: 0, caught: 0 };
   ws.on('pong', () => { p.alive = true; });
 
   ws.on('message', (data) => {
@@ -155,11 +130,12 @@ wss.on('connection', (ws) => {
       let room = getRoom(code);
       if (room.players.size >= MAX_PLAYERS) room = getRoom(''); // sala cheia → pública
       p.room = room;
-      p.inf = false;
       p.s = null;
+      p.caught = 0;
+      p.deadUntil = Date.now() + 1500; // tempo para carregar o andar
       room.players.set(p.id, p);
       send(ws, { t: 'welcome', id: p.id, room: room.code });
-      updateRound(room);
+      send(ws, { t: 'prog', ...room.game.progress() });
       sendRoster(room);
       return;
     }
@@ -171,20 +147,16 @@ wss.on('connection', (ws) => {
       p.name = cleanStr(m.name, 14, p.name);
       p.color = cleanColor(m.color);
       sendRoster(room);
-    } else if (m.t === 'tag') {
-      const target = room.players.get(m.id);
-      const now = Date.now();
-      if (room.state !== 'playing' || !target || target === p || !p.inf || target.inf || now - p.lastTag < 300) return;
-      if (now - (room.startedAt || 0) < GRACE_MS) return; // proteção no começo da rodada
-      if (!p.s || !target.s) return;
-      // validação folgada (latência): mão/cabeça do pegador perto da cabeça do alvo
-      const near = Math.min(dist(p.s, 7, target.s, 0), dist(p.s, 10, target.s, 0), dist(p.s, 0, target.s, 0));
-      if (near > 1.6) return;
-      p.lastTag = now;
-      target.inf = true;
-      broadcast(room, { t: 'tagged', id: target.id, by: p.id });
-      updateRound(room);
-      sendRoster(room);
+    } else if (m.t === 'pick' && Number.isInteger(m.id) && p.s && m.level === room.game.levelId) {
+      // valida com a mão mais perto que o servidor conhece
+      const hands = [{ x: p.s[7], y: p.s[8], z: p.s[9] }, { x: p.s[10], y: p.s[11], z: p.s[12] }];
+      const s = room.game.st.samples.find((x) => x.id === m.id);
+      if (!s) return;
+      const hand = hands.reduce((a, b) => (Math.hypot(a.x - s.x, a.y - s.y, a.z - s.z) < Math.hypot(b.x - s.x, b.y - s.y, b.z - s.z) ? a : b));
+      if (room.game.pick(m.id, hand)) {
+        broadcast(room, { t: 'picked', id: m.id, by: p.id });
+        sendProgress(room);
+      }
     }
   });
 
@@ -192,20 +164,39 @@ wss.on('connection', (ws) => {
   ws.on('error', () => leave(p));
 });
 
-// snapshots + fim de rodada
-setInterval(() => {
+// laço do servidor: IA dos monstros + regras + estados
+let lastTick = Date.now();
+function tick() {
   const now = Date.now();
+  const dt = Math.min(0.1, (now - lastTick) / 1000);
+  lastTick = now;
   for (const room of rooms.values()) {
-    if (room.state === 'ending' && now >= room.endAt) {
-      room.state = 'waiting';
-      updateRound(room);
-      sendRoster(room);
+    const g = room.game;
+    const alive = [];
+    for (const p of room.players.values()) if (p.s && now > p.deadUntil) alive.push({ id: p.id, x: p.s[0], y: p.s[1], z: p.s[2] });
+    const events = g.update(dt, alive);
+    let progressChanged = false;
+    for (const e of events) {
+      if (e.type === 'caught') {
+        const victim = room.players.get(e.playerId);
+        if (!victim) continue;
+        victim.deadUntil = now + DEAD_MS;
+        victim.caught++;
+        broadcast(room, { t: 'caught', id: e.playerId, by: e.monsterId });
+        sendRoster(room);
+      } else if (e.type === 'spotted') {
+        broadcast(room, { t: 'spotted', id: e.playerId, by: e.monsterId });
+      } else if (e.type === 'level') {
+        for (const p of room.players.values()) { p.deadUntil = now + 2000; p.s = null; }
+        progressChanged = true;
+      } else if (e.type === 'progress' || e.type === 'tick') progressChanged = true;
     }
+    if (progressChanged) sendProgress(room);
     const ps = [];
     for (const p of room.players.values()) if (p.s) ps.push([p.id, ...p.s]);
-    if (ps.length) broadcast(room, { t: 'snap', p: ps });
+    broadcast(room, { t: 'snap', p: ps, m: g.won ? [] : g.sim.snapshot(), lv: g.levelId });
   }
-}, TICK_MS);
+}
 
 // derruba conexões mortas
 setInterval(() => {
@@ -217,4 +208,9 @@ setInterval(() => {
   }
 }, 15000);
 
-server.listen(PORT, () => console.log(`Pega Primata rodando em http://localhost:${PORT}`));
+// carrega as regras compartilhadas (módulos ES do jogo) e sobe o servidor
+import(pathToFileURL(path.join(WEB, 'js', 'shared', 'game.js')).href).then((mod) => {
+  FloorGame = mod.FloorGame;
+  setInterval(tick, TICK_MS);
+  server.listen(PORT, () => console.log(`Pega Primata rodando em http://localhost:${PORT}`));
+}).catch((e) => { console.error('Falha ao carregar o jogo compartilhado:', e); process.exit(1); });

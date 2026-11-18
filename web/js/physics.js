@@ -100,6 +100,11 @@ export class PhysicsWorld {
     this.colliders = [];
   }
 
+  // remove tudo (troca de andar)
+  clear() {
+    this.colliders.length = 0;
+  }
+
   addBox(center, half, quat = null, surface = {}) {
     const q = quat ? quat.clone() : new THREE.Quaternion();
     const col = {
@@ -183,6 +188,7 @@ export class PhysicsWorld {
     let best = Infinity, bestCol = null;
     for (let i = 0; i < this.colliders.length; i++) {
       const col = this.colliders[i];
+      if (col.enabled === false) continue; // ex.: porta do elevador aberta
       if (col.min.x > maxx || col.max.x < minx || col.min.y > maxy || col.max.y < miny || col.min.z > maxz || col.max.z < minz) continue;
       // como no Unity: colisores já sobrepostos no início são ignorados
       if (this.sdf(col, origin.x, origin.y, origin.z) < radius) continue;
@@ -216,6 +222,7 @@ export class PhysicsWorld {
   sphereContacts(center, radius, cb) {
     for (let i = 0; i < this.colliders.length; i++) {
       const col = this.colliders[i];
+      if (col.enabled === false) continue;
       if (col.min.x > center.x + radius || col.max.x < center.x - radius ||
           col.min.y > center.y + radius || col.max.y < center.y - radius ||
           col.min.z > center.z + radius || col.max.z < center.z - radius) continue;

@@ -4,21 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Pega Primata</title>
-  <meta name="theme-color" content="#20301f" />
+  <meta name="theme-color" content="#0b1214" />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icons/icon-192.png" />
   <style>
-    :root { --bg: #20301f; --card: rgba(18, 28, 18, 0.88); --fg: #f3f7ee; --muted: #a9bea2; --accent: #ffd34d; --go: #3fae49; --vr: #2e86de; --inf: #ff6a2b; }
+    :root { --bg: #070b0c; --card: rgba(10, 16, 18, 0.9); --fg: #eef4f2; --muted: #93a7ab; --accent: #2fd6b0; --go: #2fae7a; --vr: #2e86de; --danger: #ff3b30; }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
     #app canvas { display: block; }
     .hidden { display: none !important; }
-    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(10, 20, 10, 0.35); }
-    .card { width: min(440px, 100%); background: var(--card); border-radius: 18px; padding: 22px; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
-    h1 { margin: 0 0 4px; color: var(--accent); font-size: 34px; letter-spacing: 1px; }
-    .sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+    #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(0,0,0,0.2), rgba(0,0,0,0.7)); overflow-y: auto; }
+    .card { width: min(460px, 100%); background: var(--card); border: 1px solid rgba(47, 214, 176, 0.25); border-radius: 18px; padding: 22px; box-shadow: 0 10px 50px rgba(0,0,0,.6); }
+    h1 { margin: 0; color: var(--accent); font-size: 34px; letter-spacing: 2px; }
+    .tag { margin: 2px 0 14px; color: var(--muted); font-size: 14px; line-height: 1.45; }
     label { display: block; font-size: 13px; color: var(--muted); margin: 12px 0 6px; }
-    input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #3b5238; background: #0f180f; color: var(--fg); font-size: 16px; }
+    input { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #23383c; background: #060b0c; color: var(--fg); font-size: 16px; }
     #swatches { display: flex; flex-wrap: wrap; gap: 8px; }
     .swatch { width: 30px; height: 30px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; }
     .swatch.sel { border-color: #fff; }
@@ -26,20 +26,41 @@
     .btn { flex: 1; min-width: 150px; padding: 14px; border: 0; border-radius: 12px; font-size: 17px; font-weight: 700; color: #fff; cursor: pointer; }
     #play-pc { background: var(--go); }
     #play-vr { background: var(--vr); }
+    #progress { margin-top: 14px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.04); }
+    .plabel { font-size: 12.5px; color: var(--muted); margin: 2px 0; }
+    .prow { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+    .pfloor { font-size: 12.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--c); color: var(--muted); }
+    .pfloor.done { background: var(--c); color: #071012; font-weight: 700; }
     .help { margin-top: 14px; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
-    .foot { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; }
+    .foot { margin-top: 10px; font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
     #hud { position: fixed; inset: 0; pointer-events: none; }
-    #hud-status { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; }
-    #hud-status.inf { background: var(--inf); }
+    #hud-status { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); background: var(--card); padding: 8px 14px; border-radius: 999px; font-size: 14px; white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; }
+    #hud-count { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); font-size: 40px; font-weight: 800; color: var(--accent); text-shadow: 0 2px 10px #000; }
+    #hud-warn { position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); background: var(--danger); color: #fff; font-weight: 800; padding: 8px 16px; border-radius: 999px; opacity: 0; transition: opacity .2s; }
+    #hud-warn.show { opacity: 1; animation: beat .6s ease-in-out infinite; }
+    @keyframes beat { 50% { transform: translateX(-50%) scale(1.08); } }
     #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px; border-radius: 50%; background: rgba(255,255,255,.8); }
-    #hud-keys { position: absolute; bottom: 12px; left: 12px; font-size: 12px; color: #fff; background: rgba(0,0,0,.35); padding: 6px 10px; border-radius: 8px; }
+    #hud-keys { position: absolute; bottom: 12px; left: 12px; font-size: 12px; color: #fff; background: rgba(0,0,0,.45); padding: 6px 10px; border-radius: 8px; max-width: calc(100% - 24px); }
     #vr-detect { margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(46, 134, 222, 0.22); border: 1px solid rgba(93, 173, 226, 0.6); font-size: 14px; line-height: 1.45; }
     #vr-detect .btn { display: block; width: 100%; margin-top: 10px; background: var(--vr); }
-    #hud-vr { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); background: var(--vr); padding: 7px 14px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+    #hud-vr { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); background: var(--vr); padding: 7px 14px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
     .pulse { animation: pulse 1.2s ease-in-out infinite; }
     @keyframes pulse { 50% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(46,134,222,.35); } }
-    #flash { position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-10px); background: var(--accent); color: #222; font-weight: 700; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
+    #flash { position: fixed; top: 64px; left: 50%; transform: translateX(-50%) translateY(-10px); background: var(--accent); color: #071012; font-weight: 700; padding: 10px 16px; border-radius: 12px; opacity: 0; transition: .25s; pointer-events: none; max-width: calc(100% - 32px); text-align: center; }
     #flash.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    #scare { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .45s; }
+    #scare.flash { opacity: 1; background: #fff; transition: none; }
+    #scare.hold { opacity: 1; transition: none; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 35%, rgba(40,0,0,0.55) 70%, rgba(0,0,0,0.95) 100%); }
+    #scare.hold::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 5px); animation: grain .12s steps(2) infinite; }
+    #scare.black { opacity: 1; background: #000; transition: opacity .3s; }
+    @keyframes grain { 50% { transform: translateY(3px); } }
+    #app.shake canvas { animation: shake .09s linear infinite; }
+    @keyframes shake { 0% { transform: translate(6px, -4px) rotate(.4deg); } 33% { transform: translate(-7px, 3px) rotate(-.5deg); } 66% { transform: translate(4px, 6px) rotate(.3deg); } 100% { transform: translate(-3px, -6px); } }
+    #fade { position: fixed; inset: 0; pointer-events: none; display: flex; align-items: center; justify-content: center; background: #000; color: var(--accent); font-size: clamp(22px, 5vw, 44px); font-weight: 800; letter-spacing: 3px; opacity: 0; transition: opacity .8s; text-align: center; padding: 16px; }
+    #fade.show { opacity: 1; transition: opacity .15s; }
+    #victory { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: rgba(0,0,0,0.55); padding: 16px; }
+    #victory h2 { margin: 0; font-size: clamp(30px, 7vw, 64px); color: #ffd34d; letter-spacing: 3px; }
+    #victory p { color: var(--fg); font-size: 18px; }
   </style>
   <script type="importmap">{ "imports": { "three": "./vendor/three.module.js" } }</script>
 </head>
@@ -48,13 +69,13 @@
 
   <div id="menu">
     <div class="card">
-      <h1>PEGA PRIMATA</h1>
-      <p class="sub">Pega-pega de macaco: ande só com os braços.</p>
+      <h1>ESTAÇÃO ZERO</h1>
+      <p class="tag">Os babuínos do laboratório escaparam. Ande com os braços, ache as amostras e suba pelos elevadores até a superfície. Eles só enxergam o que está à frente…</p>
       <label for="name">Seu nome</label>
       <input id="name" maxlength="14" autocomplete="off" />
       <label>Cor</label>
       <div id="swatches"></div>
-      <label for="room">Código da sala (vazio = sala pública)</label>
+      <label for="room">Código da sala (vazio = sala pública · cada sala tem um labirinto aleatório)</label>
       <input id="room" maxlength="8" placeholder="ex.: AMIGOS" autocomplete="off" />
       <div id="vr-detect" class="hidden">
         <span id="vr-detect-text"></span>
@@ -64,10 +85,12 @@
         <button class="btn" id="play-pc">Jogar no PC</button>
         <button class="btn hidden" id="play-vr">Entrar no VR</button>
       </div>
+      <div id="progress"></div>
       <div class="help">
-        <b>VR:</b> empurre o chão e as paredes com as mãos para se mover. Analógico direito gira (Vive: aperte as laterais do touchpad). B/Y ou clique do analógico esquerdo = renascer.<br />
-        <b>VR no PC:</b> funciona com SteamVR, Quest Link/Air Link, Virtual Desktop e WMR. Ligue o headset e o jogo detecta sozinho.<br />
-        <b>PC:</b> WASD = remar com os braços • Mouse = olhar (olhe para cima para escalar) • Espaço = pular • Shift = correr • Clique esq./dir. = tapa • R = renascer • Esc = menu
+        <b>Como jogar:</b> encoste a mão nas 3 amostras azuis de cada andar para abrir o elevador de saída. Elevadores são zona segura. Caixas com faixa amarela, prateleiras, tanques e mezaninos ficam fora do alcance dos monstros.<br />
+        <b>VR:</b> empurre o chão e as paredes com as mãos. Analógico direito gira (Vive: laterais do touchpad). B/Y ou clique do analógico esquerdo = voltar ao elevador.<br />
+        <b>VR no PC:</b> SteamVR, Quest Link/Air Link, Virtual Desktop e WMR — ligue o headset e o jogo detecta.<br />
+        <b>PC:</b> WASD = remar com os braços • Mouse = olhar (olhe para cima para escalar) • Espaço = pular • Shift = correr • Clique = tapa/pegar • R = voltar ao elevador • Esc = menu
         <span id="vr-hint"><br />VR: abra este jogo no navegador do Quest ou pelo APK.</span>
       </div>
       <div class="foot"><span id="net-status">offline</span><a href="xrtest.html" style="color:#9fd0ff">Teste de VR</a><span id="version">v-</span></div>
@@ -75,11 +98,16 @@
   </div>
 
   <div id="hud" class="hidden">
-    <div id="hud-status">Solo</div>
+    <div id="hud-status">Andar 1</div>
+    <div id="hud-count"></div>
     <div id="crosshair"></div>
     <div id="hud-vr" class="hidden"></div>
-    <div id="hud-keys">WASD remar • Espaço pular • Cliques = tapa • R renascer • Esc menu</div>
+    <div id="hud-warn">🐒 TE VIU! CORRE!</div>
+    <div id="hud-keys">WASD remar • Espaço pular • Clique = pegar amostra • R elevador • Esc menu</div>
   </div>
+  <div id="scare"></div>
+  <div id="fade"></div>
+  <div id="victory" class="hidden"><h2>VOCÊS ESCAPARAM!</h2><p>Uma nova estação está sendo preparada…</p></div>
   <div id="flash"></div>
 
   <script type="module" src="./js/main.js"></script>

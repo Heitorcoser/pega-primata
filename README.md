@@ -1,15 +1,32 @@
-# Pega Primata
+# Pega Primata — Estação Zero
 
-Pega-pega (modo infecção) em que você **anda só com os braços**, para **VR (APK do Meta Quest)**
-e **PC (EXE)**. Feito em HTML + JavaScript (three.js + WebXR), com atualização automática.
+Jogo de terror cooperativo em que você **anda só com os braços**, para **VR (APK do Meta Quest)**,
+**VR no PC** e **PC (EXE)**. Feito em HTML + JavaScript (three.js + WebXR), com atualização automática.
+
+Os babuínos do laboratório escaparam. Cada sala gera um **labirinto aleatório** de estação
+científica. Você precisa achar as **3 amostras** de cada andar para destrancar o **elevador de
+saída** e subir os 3 andares (Biologia → Química → Contenção) até a superfície.
 
 - **Movimento VR:** é um port linha a linha do sistema de locomoção que a Another Axiom
   publicou como código aberto (MIT): [GorillaLocomotion/Player.cs](https://github.com/Another-Axiom/GorillaLocomotion).
   Os valores são os do prefab oficial: histórico de velocidade 8, braço 1.5 m, limite 0.4,
   pulo máx. 6.5 × 1.1, mão r 0.05, cabeça r 0.15, corpo em cápsula r 0.15 × 0.5, deslize 0.03 e precisão 0.995.
   A física de colisão (`web/js/physics.js`) reproduz a semântica do `Physics.SphereCast` do Unity.
-- **Pegador:** fica mais rápido (pulo máx. 8.5 × 1.3).
-- **Nome, personagem e mapa:** são originais (Ruínas do Cipó).
+- **Monstros com visão de verdade** (`web/js/shared/monsterai.js`): enxergam só um cone à
+  frente (as paredes bloqueiam) e percebem quem chega colado. Quando perdem você de vista, vão
+  atrás de outro jogador que estejam vendo ou até o último ponto em que te viram, procuram
+  olhando em volta e voltam a explorar as áreas menos visitadas. Se você sobe em algo alto,
+  eles ficam embaixo rondando e desistem depois de um tempo.
+- **Cada andar tem seu monstro e seu NPC:** Babuíno + holograma do Dr. Bento, Mandril (mais
+  rápido, enxerga mais longe) + robô ZÉ-7, e 3 Babuínos-alfa albinos + holograma da Dra. Íris.
+- **Lugares seguros:** os elevadores (zona segura), as caixas com faixa amarela, as prateleiras,
+  os tanques e os mezaninos com escada.
+- **Modelos e animação procedurais:** babuínos com juba, focinho longo, dentes e olhos que
+  brilham no escuro. Andam de quatro apoiados nos nós dos dedos (IK nos 4 membros), galopam,
+  se erguem para atacar e viram a cabeça para onde estão olhando.
+- **Tudo é original:** nome, personagens e mapas.
+- **Testes:** `node tools/test-ai.mjs` valida o gerador (conectividade, amostras, rotas livres)
+  e os comportamentos da IA.
 
 ## Estrutura
 
@@ -108,8 +125,14 @@ R = renascer. Esc = menu. F11 = tela cheia (EXE).
   e PICO. O modelo aparece no quadro dentro do jogo. No Vive (sem analógico), gire apertando
   as laterais do touchpad e renasça clicando no touchpad esquerdo.
 
-## Modo infecção
+## Como funciona a partida
 
-Com 2 ou mais jogadores, um é sorteado como pegador (laranja). Quem é pego vira pegador.
-Quando todos forem pegos, começa uma nova rodada. Há 3 s de proteção no começo de cada rodada.
-Cada sala tem até 10 jogadores. Deixe o código vazio para entrar numa sala pública.
+- Cada sala nasce com uma **semente aleatória**, que aparece no quadro do elevador. Ela vale para
+  todo mundo da sala, então todos jogam o mesmo labirinto.
+- Encoste a mão nas amostras azuis. Com as 3 coletadas, o elevador de saída abre (luz verde).
+  Quando alguém entra nele, começa uma contagem de 10 s, e todos sobem juntos para o próximo andar.
+- Se um monstro te pegar, você leva um susto e volta para o elevador de entrada do andar.
+- Depois do 3º andar vocês escapam, e uma nova estação, com um labirinto novo, é gerada.
+- O progresso (o andar mais alto alcançado e as fugas completas) fica salvo no menu.
+- Cada sala tem até 10 jogadores. Deixe o código vazio para entrar numa sala pública. Sem
+  servidor, o jogo roda sozinho no modo solo, com as mesmas regras e a mesma IA.

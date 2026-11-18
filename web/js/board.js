@@ -28,8 +28,13 @@ export class Board {
 
     this.buttons = [];
     this.lastPress = 0;
-    this.info = { room: '-', players: [], status: 'offline', version: '', mode: '' };
+    this.info = { room: '-', players: [], status: 'offline', version: '', mode: '', seed: '', floorLine: '', accent: '#2fd6b0' };
     this.draw();
+  }
+
+  dispose() {
+    this.group.parent?.remove(this.group);
+    this.group.traverse((o) => { o.geometry?.dispose(); if (o.material) [].concat(o.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); });
   }
 
   addButton(label, x, color, onPress) {
@@ -77,32 +82,36 @@ export class Board {
 
   draw() {
     const g = this.ctx, i = this.info;
-    g.fillStyle = '#20301f';
+    g.fillStyle = '#0c1216';
     g.fillRect(0, 0, 1024, 600);
-    g.fillStyle = '#ffd34d';
-    g.font = 'bold 60px system-ui, sans-serif';
-    g.fillText('PEGA PRIMATA', 30, 70);
+    g.fillStyle = i.accent;
+    g.fillRect(0, 0, 1024, 8);
+    g.font = 'bold 54px system-ui, sans-serif';
+    g.fillText('ESTAÇÃO ZERO', 30, 68);
+    g.font = '24px system-ui, sans-serif';
+    g.fillStyle = '#9fb2bc';
+    g.fillText(`Sala ${i.room}  •  semente ${i.seed}  •  ${i.status}  •  v${i.version}`, 32, 106);
+    g.font = 'bold 34px system-ui, sans-serif';
+    g.fillStyle = '#ffffff';
+    g.fillText(i.floorLine, 32, 156);
     g.font = '28px system-ui, sans-serif';
-    g.fillStyle = '#cfe8c8';
-    g.fillText(`Sala: ${i.room}   •   ${i.status}   •   v${i.version}`, 32, 115);
-    g.fillText(i.mode, 32, 152);
-    if (i.controls) {
-      g.fillStyle = '#9fd0ff';
-      g.fillText(`🎮 Controles: ${i.controls}`, 32, 560);
-    }
-    g.font = 'bold 32px system-ui, sans-serif';
-    i.players.slice(0, 10).forEach((p, k) => {
+    g.fillStyle = i.accent;
+    g.fillText(i.mode, 32, 196);
+    g.font = 'bold 28px system-ui, sans-serif';
+    const list = i.players.length ? i.players : [{ name: 'Você (solo)', color: '#8b5a2b', me: false, caught: i.soloCaught || 0 }];
+    list.slice(0, 10).forEach((p, k) => {
       const col = k < 5 ? 0 : 1, row = k % 5;
-      const x = 40 + col * 490, y = 215 + row * 66;
+      const x = 40 + col * 490, y = 252 + row * 56;
       g.fillStyle = p.color;
-      g.beginPath(); g.arc(x + 18, y - 10, 18, 0, Math.PI * 2); g.fill();
-      g.fillStyle = p.inf ? '#ff7a45' : '#ffffff';
-      g.fillText(`${p.name}${p.me ? ' (você)' : ''}${p.inf ? '  🔥' : ''}`, x + 50, y);
+      g.beginPath(); g.arc(x + 16, y - 9, 15, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#ffffff';
+      g.fillText(`${p.name}${p.me ? ' (você)' : ''}`, x + 44, y);
+      if (p.caught) { g.fillStyle = '#ff7a6a'; g.fillText(`pego ${p.caught}×`, x + 330, y); }
     });
-    if (!i.players.length) {
-      g.fillStyle = '#9fb59a';
-      g.fillText('Sem conexão — jogando sozinho', 40, 260);
-    }
+    g.font = '22px system-ui, sans-serif';
+    g.fillStyle = '#7f949e';
+    g.fillText('Caixas com faixa amarela e mezaninos = seguro. Elevadores = zona segura.', 32, 548);
+    if (i.controls) { g.fillStyle = '#9fd0ff'; g.fillText(`🎮 ${i.controls}`, 32, 582); }
     this.tex.needsUpdate = true;
   }
 }
