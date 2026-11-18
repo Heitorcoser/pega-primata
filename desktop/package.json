@@ -33,7 +33,7 @@
       "shortcutName": "Pega Primata"
     },
     "publish": [
-      { "provider": "github", "owner": "SEU_USUARIO_GITHUB", "repo": "pega-primata" }
+      { "provider": "github", "owner": "heitorcoser", "repo": "pega-primata" }
     ]
   }
 }
